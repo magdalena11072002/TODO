@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">TODOer</string>
+    <string name="app_name">TODO</string>
     <string name="menu">MENU</string>
     <string name="time_def">12:00</string>
     <string name="date_def">10.10.2020</string>
