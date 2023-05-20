@@ -30,6 +30,25 @@ class MainActivity : AppCompatActivity() {
             displayOptionDialog(position)
             true
         }
+
+        //TODO dodać początkowe zadania, które będą się wyświetlały po odpaleniu aplikacji
+    }
+
+    override fun onRestoreInstanceState(savedInstanceState: Bundle?) {
+        super.onRestoreInstanceState(savedInstanceState)
+        if (savedInstanceState != null) {
+            taskList.clear()
+            myAdapter.clear()
+            val taskListSaved =
+                savedInstanceState.getParcelableArrayList<ListElement>("todoList") as ArrayList<ListElement>
+            taskList.addAll(taskListSaved)
+            myAdapter.notifyDataSetChanged()
+        }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle?) {
+        super.onSaveInstanceState(outState)
+        outState?.putParcelableArrayList("todoList", taskList)
     }
 
 
@@ -39,14 +58,12 @@ class MainActivity : AppCompatActivity() {
             val popupMenu = PopupMenu(this, it)
             popupMenu.setOnMenuItemClickListener { item ->
                 when (item.itemId) {
-                    /*
                     R.id.action_add -> {
                         val intent = Intent(this, AddTask::class.java)
                         intent.apply { putExtra("todoList", taskList) }
                         startActivityForResult(intent, 997)
                         true
                     }
-                     */
                     R.id.action_sort -> {
                         displaySortDialog()
                         true
@@ -103,6 +120,10 @@ class MainActivity : AppCompatActivity() {
         taskList.sortWith(compareBy({it.year},{it.month},{it.day},{it.hour},{it.minute}))
         myAdapter.notifyDataSetChanged()
     }
+    private fun addToList(newTodo: Parcelable) {
+        val parsed: ListElement = newTodo as ListElement
+        taskList.add(parsed)
+    }
 
     fun displayOptionDialog(position : Int){
 
@@ -132,11 +153,12 @@ class MainActivity : AppCompatActivity() {
         val dialog = builder.create()
         dialog.show()
     }
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         if (requestCode == 997) {
             if (resultCode == Activity.RESULT_OK) {
                 val newTodo = data!!.getParcelableExtra<ListElement>("ListItem")
-                //addToList(newTodo)
+                addToList(newTodo)
                 myAdapter.notifyDataSetChanged()
             } else {
                 super.onActivityResult(requestCode, resultCode, data)
