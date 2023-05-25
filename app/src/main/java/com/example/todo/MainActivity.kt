@@ -1,7 +1,11 @@
 package com.example.todo
 
+import android.annotation.SuppressLint
 import android.app.Activity
+import android.app.AlarmManager
 import android.app.AlertDialog
+import android.app.PendingIntent
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.os.Parcelable
@@ -9,11 +13,14 @@ import android.support.v7.app.AppCompatActivity
 import android.support.v7.widget.PopupMenu
 import android.util.Log
 import android.widget.Toast
+import androidx.core.content.ContextCompat.getSystemService
 import kotlinx.android.synthetic.main.activity_main.*
 import java.util.*
 
 
 class MainActivity : AppCompatActivity() {
+
+    private lateinit var notificationHelper: NotificationHelper
 
     var taskList = ArrayList<ListElement>()
     lateinit var myAdapter: MyArrayAdapter
@@ -22,6 +29,9 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         famHandler()
+
+        notificationHelper = NotificationHelper(this)
+        notificationHelper.createNotificationChannel()
 
         myAdapter = MyArrayAdapter(this, taskList)
         todolist.adapter = myAdapter
@@ -123,6 +133,8 @@ class MainActivity : AppCompatActivity() {
     private fun addToList(newTodo: Parcelable) {
         val parsed: ListElement = newTodo as ListElement
         taskList.add(parsed)
+        scheduleNotification(parsed)
+        myAdapter.notifyDataSetChanged()
     }
 
     fun displayOptionDialog(position : Int){
@@ -166,5 +178,35 @@ class MainActivity : AppCompatActivity() {
         } else {
             super.onActivityResult(requestCode, resultCode, data)
         }
+    }
+
+    @SuppressLint("UnspecifiedImmutableFlag")
+    private fun scheduleNotification(task: ListElement) {
+        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+
+        val intent = Intent(this, AlarmReceiver::class.java)
+        intent.putExtra("title", "Todo Reminder")
+        intent.putExtra("message", task.TODO)
+
+        val pendingIntent = PendingIntent.getBroadcast(
+            this,
+            taskList.indexOf(task),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        val calendar = Calendar.getInstance()
+        calendar.set(Calendar.YEAR, task.year)
+        calendar.set(Calendar.MONTH, task.month - 1) // Month is zero-based
+        calendar.set(Calendar.DAY_OF_MONTH, task.day)
+        calendar.set(Calendar.HOUR_OF_DAY, task.hour)
+        calendar.set(Calendar.MINUTE, task.minute)
+        calendar.set(Calendar.SECOND, 0)
+
+        alarmManager.setExact(
+            AlarmManager.RTC_WAKEUP,
+            calendar.timeInMillis,
+            pendingIntent
+        )
     }
 }
