@@ -12,15 +12,12 @@ import android.os.Parcelable
 import android.support.v7.app.AppCompatActivity
 import android.support.v7.widget.PopupMenu
 import android.util.Log
-import android.widget.Toast
-import androidx.core.content.ContextCompat.getSystemService
 import kotlinx.android.synthetic.main.activity_main.*
 import java.util.*
-
+import android.os.Build
+import kotlinx.android.synthetic.main.list_item.*
 
 class MainActivity : AppCompatActivity() {
-
-    private lateinit var notificationHelper: NotificationHelper
 
     var taskList = ArrayList<ListElement>()
     lateinit var myAdapter: MyArrayAdapter
@@ -30,9 +27,6 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         famHandler()
 
-        notificationHelper = NotificationHelper(this)
-        notificationHelper.createNotificationChannel()
-
         myAdapter = MyArrayAdapter(this, taskList)
         todolist.adapter = myAdapter
 
@@ -41,7 +35,9 @@ class MainActivity : AppCompatActivity() {
             true
         }
 
-        //TODO dodać początkowe zadania, które będą się wyświetlały po odpaleniu aplikacji
+        //Example task
+        val element = ListElement("zadanie", "school", false, 0, 18, 27, 6, 2023, false)
+        addToList(element)
     }
 
     override fun onRestoreInstanceState(savedInstanceState: Bundle?) {
@@ -133,8 +129,8 @@ class MainActivity : AppCompatActivity() {
     private fun addToList(newTodo: Parcelable) {
         val parsed: ListElement = newTodo as ListElement
         taskList.add(parsed)
-        scheduleNotification(parsed)
         myAdapter.notifyDataSetChanged()
+        scheduleNotification("Task Due", newTodo.TODO, parsed.year, parsed.month, parsed.day, parsed.hour, parsed.minute)
     }
 
     fun displayOptionDialog(position : Int){
@@ -181,32 +177,45 @@ class MainActivity : AppCompatActivity() {
     }
 
     @SuppressLint("UnspecifiedImmutableFlag")
-    private fun scheduleNotification(task: ListElement) {
+    private fun scheduleNotification(title: String, message: String, year: Int, month: Int, day: Int, hour: Int, minute: Int) {
         val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
-        val intent = Intent(this, AlarmReceiver::class.java)
-        intent.putExtra("title", "Todo Reminder")
-        intent.putExtra("message", task.TODO)
+        val notificationIntent = Intent(this, NotificationReceiver::class.java).apply {
+            action = "ACTION_SHOW_NOTIFICATION"
+            putExtra("title", title)
+            putExtra("message", message)
+        }
 
         val pendingIntent = PendingIntent.getBroadcast(
             this,
-            taskList.indexOf(task),
-            intent,
+            0,
+            notificationIntent,
             PendingIntent.FLAG_UPDATE_CURRENT
         )
 
         val calendar = Calendar.getInstance()
-        calendar.set(Calendar.YEAR, task.year)
-        calendar.set(Calendar.MONTH, task.month - 1) // Month is zero-based
-        calendar.set(Calendar.DAY_OF_MONTH, task.day)
-        calendar.set(Calendar.HOUR_OF_DAY, task.hour)
-        calendar.set(Calendar.MINUTE, task.minute)
+        calendar.set(Calendar.YEAR, year)
+        calendar.set(Calendar.MONTH, month - 1)
+        calendar.set(Calendar.DAY_OF_MONTH, day)
+        calendar.set(Calendar.HOUR_OF_DAY, hour)
+        calendar.set(Calendar.MINUTE, minute)
         calendar.set(Calendar.SECOND, 0)
 
-        alarmManager.setExact(
-            AlarmManager.RTC_WAKEUP,
-            calendar.timeInMillis,
-            pendingIntent
-        )
+        val notificationTimeInMillis = calendar.timeInMillis
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            alarmManager.setExactAndAllowWhileIdle(
+                AlarmManager.RTC_WAKEUP,
+                notificationTimeInMillis,
+                pendingIntent
+            )
+        } else {
+            alarmManager.setExact(
+                AlarmManager.RTC_WAKEUP,
+                notificationTimeInMillis,
+                pendingIntent
+            )
+        }
     }
+
 }
