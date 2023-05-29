@@ -9,38 +9,76 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.os.Parcelable
-import android.support.v7.app.AppCompatActivity
-import android.support.v7.widget.PopupMenu
 import android.util.Log
-import kotlinx.android.synthetic.main.activity_main.*
+import com.example.todo.databinding.ActivityMainBinding
 import java.util.*
 import android.os.Build
-import kotlinx.android.synthetic.main.list_item.*
+import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.PopupMenu
+import androidx.lifecycle.lifecycleScope
+import com.example.todo.database.MyDB
+import com.example.todo.database.TaskEntity
+import com.google.android.material.floatingactionbutton.FloatingActionButton
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+
 
 class MainActivity : AppCompatActivity() {
-
-    var taskList = ArrayList<ListElement>()
-    lateinit var myAdapter: MyArrayAdapter
+    private lateinit var binding: ActivityMainBinding
+    private val taskList = ArrayList<ListElement>()
+    private lateinit var myAdapter: MyArrayAdapter
+    private lateinit var db : MyDB
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+        db = MyDB.get(this)
         famHandler()
 
         myAdapter = MyArrayAdapter(this, taskList)
-        todolist.adapter = myAdapter
+        binding.todolist.adapter = myAdapter
 
-        todolist.setOnItemLongClickListener { parent, view, position, id ->
+        binding.todolist.setOnItemLongClickListener { parent, view, position, id ->
             displayOptionDialog(position)
             true
         }
 
-        //Example task
-        val element = ListElement("zadanie", "school", false, 0, 18, 27, 6, 2023, false)
-        addToList(element)
+        lifecycleScope.launch {
+            withContext(Dispatchers.Main) {
+                val tasks = withContext(Dispatchers.IO) {
+                    db.TaskDAO().getAll()
+                }
+                tasks.observe(this@MainActivity) { taskEntities ->
+                    taskList.clear()
+                    taskList.addAll(convertTaskEntitiesToListElements(taskEntities))
+                    myAdapter.notifyDataSetChanged()
+                }
+            }
+        }
+
     }
 
-    override fun onRestoreInstanceState(savedInstanceState: Bundle?) {
+    private fun convertTaskEntitiesToListElements(tasks: List<TaskEntity>): List<ListElement> {
+        return tasks.map { task ->
+            ListElement(
+                task.description,
+                task.group,
+                task.priority,
+                task.hour,
+                task.minute,
+                task.day,
+                task.month,
+                task.year,
+                task.done
+            )
+        }
+    }
+
+
+    override fun onRestoreInstanceState(savedInstanceState: Bundle) {
         super.onRestoreInstanceState(savedInstanceState)
         if (savedInstanceState != null) {
             taskList.clear()
@@ -52,14 +90,14 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    override fun onSaveInstanceState(outState: Bundle?) {
+    override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         outState?.putParcelableArrayList("todoList", taskList)
     }
 
 
     fun famHandler() {
-        val actionButton = actionButton
+        val actionButton: FloatingActionButton = findViewById(R.id.actionButton)
         actionButton.setOnClickListener {
             val popupMenu = PopupMenu(this, it)
             popupMenu.setOnMenuItemClickListener { item ->
@@ -78,7 +116,6 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             popupMenu.inflate(R.menu.action_menu)
-            popupMenu.show()
 
             try {
                 val fieldMPopup = PopupMenu::class.java.getDeclaredField("mPopup")
@@ -92,6 +129,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+
 
     private fun displaySortDialog() {
         val options = arrayOf("By deadline","By group", "By priority" )
@@ -146,27 +184,52 @@ class MainActivity : AppCompatActivity() {
         builder.setTitle("Choose action")
         builder.setItems(options) { _, which ->
             val selected = options[which]
-            if(selected == "Mark as done"){
+            if (selected == "Mark as done") {
                 taskList[position].done = true
                 myAdapter.notifyDataSetChanged()
-            } else if(selected == "Mark as undone"){
+            } else if (selected == "Mark as undone") {
                 taskList[position].done = false
                 myAdapter.notifyDataSetChanged()
-            }
-            else{
-                taskList.removeAt(position)
+            } else {
+                lifecycleScope.launch {
+                    withContext(Dispatchers.IO) {
+                        db = MyDB.get(applicationContext)
+                        val task = convertListElementToTaskEntity(taskList[position])
+                        db.TaskDAO().delete(task.description, task.hour, task.minute, task.day, task.month, task.year)
+
+                        // Remove the task from the list
+                        taskList.removeAt(position)
+                    }
+                }
                 myAdapter.notifyDataSetChanged()
+
             }
         }
         val dialog = builder.create()
         dialog.show()
     }
+    private fun convertListElementToTaskEntity(listElement: ListElement): TaskEntity {
+        return TaskEntity(
+            description = listElement.TODO,
+            group = listElement.groupType,
+            priority = listElement.priority,
+            hour = listElement.hour,
+            minute = listElement.minute,
+            day = listElement.day,
+            month = listElement.month,
+            year = listElement.year,
+            done = listElement.done
+        )
+    }
+
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         if (requestCode == 997) {
             if (resultCode == Activity.RESULT_OK) {
                 val newTodo = data!!.getParcelableExtra<ListElement>("ListItem")
-                addToList(newTodo)
+                if (newTodo != null) {
+                    addToList(newTodo)
+                }
                 myAdapter.notifyDataSetChanged()
             } else {
                 super.onActivityResult(requestCode, resultCode, data)
@@ -190,8 +253,10 @@ class MainActivity : AppCompatActivity() {
             this,
             0,
             notificationIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+
+
 
         val calendar = Calendar.getInstance()
         calendar.set(Calendar.YEAR, year)
