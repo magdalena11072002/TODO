@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.content.Intent
+import android.graphics.Color
 import android.os.Bundle
 import android.view.View
 import android.widget.ImageButton
@@ -28,6 +29,7 @@ import java.util.*
 class AddTask : AppCompatActivity(), LifecycleOwner {
     private lateinit var lifecycleRegistry: LifecycleRegistry
     private lateinit var binding: ActivityAddTaskBinding
+    private var lastSelectedButton: ImageButton? = null
 
     override fun getLifecycle(): Lifecycle {
         if (!::lifecycleRegistry.isInitialized) {
@@ -65,7 +67,7 @@ class AddTask : AppCompatActivity(), LifecycleOwner {
                 hour = mHour
                 minute = mMinute
                 binding.timeTF.setText(displayCorrectTime(hour,minute))
-            }, minute,hour, true)
+            }, hour,minute, true)
             timePicker.show()
         }
         binding.priorityB.setOnCheckedChangeListener { buttonView, isChecked ->
@@ -81,44 +83,61 @@ class AddTask : AppCompatActivity(), LifecycleOwner {
             dpd1.show()
         }
     }
+    // Tworzenie nowego zadania
     fun createTODO (view: View){
-
-        if(group.isEmpty()){
-            Toast.makeText(this@AddTask, "Select group!", Toast.LENGTH_SHORT).show()
+        if(binding.todoTF.text.isEmpty()){
+            Toast.makeText(this@AddTask, "Wpisz zadanie!", Toast.LENGTH_SHORT).show()
             return
-        }
+        }else{
+            val todo = binding.todoTF.text.toString()
+            date =  binding.dateTF.text.toString()
+            val time = binding.timeTF.text.toString()
+            val listElement = ListElement(todo, group, priority, minute,hour,day,month,year, false)
 
-        val todo = binding.todoTF.text.toString()
-        date =  binding.dateTF.text.toString()
-        val time = binding.timeTF.text.toString()
-        val listElement = ListElement(todo, group, priority, minute,hour,day,month,year, false)
+            val newTask = TaskEntity(description = todo, group = group, priority = priority, hour = hour,minute = minute, day = day, month = month, year = year, done =
+            false)
 
-        val newTask = TaskEntity(description = todo, group = group, priority = priority, hour = hour,minute = minute, day = day, month = month, year = year, done =
-        false)
-
-        lifecycleScope.launch {
-            withContext(Dispatchers.IO) {
-                val db = MyDB.get(applicationContext)
-                db.TaskDAO().insert(newTask)
+            lifecycleScope.launch {
+                withContext(Dispatchers.IO) {
+                    val db = MyDB.get(applicationContext)
+                    db.TaskDAO().insert(newTask)
+                }
+                val mainActivityIntent = Intent(this@AddTask, MainActivity::class.java)
+                mainActivityIntent.action = "UPDATE_ADAPTER"
+                sendBroadcast(mainActivityIntent)
             }
+
+            val intent = Intent(this, MainActivity::class.java)
+            intent.apply { putExtra("ListItem", listElement)}
+            setResult(Activity.RESULT_OK,intent)
+            finish()
         }
-
-        val intent = Intent(this, MainActivity::class.java)
-        intent.apply { putExtra("ListItem", listElement)}
-        setResult(Activity.RESULT_OK,intent)
-        finish()
     }
-
+    // Dodawanie grupy
     fun addGroup(view:View){
         val btn: ImageButton = findViewById(view.id)
+        lastSelectedButton?.setBackgroundResource(R.color.but)
         when (btn) {
-            binding.workGroup -> group = "work"
-            binding.chillGroup -> group = "chill"
-            binding.schoolGroup -> group = "school"
-            binding.homeGroup -> group = "home"
+            binding.workGroup -> {
+                group = "work"
+                btn.setBackgroundResource(R.color.colorAccent)
+            }
+            binding.chillGroup -> {
+                group = "chill"
+                btn.setBackgroundResource(R.color.colorAccent)
+            }
+            binding.schoolGroup -> {
+                group = "school"
+                btn.setBackgroundResource(R.color.colorAccent)
+            }
+            binding.homeGroup -> {
+                group = "home"
+                btn.setBackgroundResource(R.color.colorAccent)
+            }
         }
+        lastSelectedButton = btn
     }
-
+    // Obsługa przycisku "Today"
     fun todayClick(view: View){
         val today = LocalDate.now()
         val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
@@ -126,7 +145,7 @@ class AddTask : AppCompatActivity(), LifecycleOwner {
         date = formatted.toString()
         binding.dateTF.setText(date)
     }
-
+    // Obsługa przycisku zwiększania godziny
     fun plusHourClick(view: View){
         hour++
 
@@ -136,6 +155,7 @@ class AddTask : AppCompatActivity(), LifecycleOwner {
 
         binding.timeTF.setText(displayCorrectTime(hour,minute))
     }
+    // Wyświetlanie poprawnego formatu czasu
     fun displayCorrectTime(hour : Int,minute : Int): String{
 
         var minuteString = minute.toString()
@@ -152,7 +172,7 @@ class AddTask : AppCompatActivity(), LifecycleOwner {
         }
         return "$hourString:$minuteString"
     }
-
+    // Wyświetlanie poprawnego formatu daty
     fun displayCorrectDate(day : Int, month: Int, year : Int) : String{
 
         var dayString = day.toString()
@@ -164,7 +184,8 @@ class AddTask : AppCompatActivity(), LifecycleOwner {
         if(month<10){
             monthString = "0$month"
         }
-
         return "$dayString/$monthString/$year"
     }
+
+
 }

@@ -10,8 +10,8 @@ import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
 
-
 class NotificationReceiver : BroadcastReceiver() {
+
 
     override fun onReceive(context: Context, intent: Intent) {
         val notificationTitle = intent.getStringExtra("title")
@@ -19,7 +19,7 @@ class NotificationReceiver : BroadcastReceiver() {
 
         showNotification(context, notificationTitle, notificationMessage)
     }
-
+    // Wyświetlanie powiadomienia
     private fun showNotification(context: Context, title: String?, message: String?) {
         if (title != null && message != null) {
             NotificationUtils.showNotification(context, title, message)
@@ -28,14 +28,14 @@ class NotificationReceiver : BroadcastReceiver() {
 }
 
 object NotificationUtils {
-
+    private var notificationID = 0
     private const val CHANNEL_ID = "my_channel_id"
     private const val CHANNEL_NAME = "My Channel"
-
+    // Metoda wyświetlająca powiadomienie
     fun showNotification(context: Context, title: String, message: String) {
         val notificationManager =
             context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-
+        // Tworzenie kanału powiadomień
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
@@ -44,15 +44,15 @@ object NotificationUtils {
             )
             notificationManager.createNotificationChannel(channel)
         }
-
+        // Tworzenie intencji dla aktywności, która ma zostać uruchomiona po kliknięciu w powiadomienie
         val intent = Intent(context, MainActivity::class.java)
-        val pendingIntent = PendingIntent.getBroadcast(
+        val pendingIntent = PendingIntent.getActivity(
             context,
             0,
             intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-
+        // Tworzenie obiektu powiadomienia
         val notification: Notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(message)
@@ -60,9 +60,8 @@ object NotificationUtils {
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
             .build()
-
-        notificationManager.notify(0, notification)
+        // Wyświetlanie powiadomienia
+        notificationManager.notify(notificationID++, notification)
     }
 }
-
 

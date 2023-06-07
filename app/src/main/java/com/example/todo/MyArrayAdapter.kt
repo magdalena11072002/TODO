@@ -16,23 +16,24 @@ class MyArrayAdapter(context: Context, var data: ArrayList<ListElement>) :
     override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
         var view = convertView
         var backgroundColor: String
-
+        // Jeśli widok jest null
         if (view == null) {
             val inflater = LayoutInflater.from(context)
             view = inflater.inflate(R.layout.list_item, parent, false)
         }
+        // Ustaw kolor tła elementu listy w zależności od tego, czy jest zrobiony czy nie
         if (data[position].done) {
-            backgroundColor = "#4cd370"
+            backgroundColor = "#70cc88"
 
         } else {
-            backgroundColor = "#e2bb1b"
+            backgroundColor = "#f2d86b"
         }
         view?.findViewById<LinearLayout>(R.id.list_element)?.setBackgroundColor(Color.parseColor(backgroundColor))
 
         view!!.findViewById<TextView>(R.id.title).text = data[position].TODO
         view.findViewById<TextView>(R.id.time).text = displayCorrectTime(data[position].hour, data[position].minute)
         view.findViewById<TextView>(R.id.date).text = displayCorrectDate(data[position].day, data[position].month, data[position].year)
-
+        //Ustawienie obrazka grupy w zależności od typu grupy dla danego elementu na liście
         when {
             data[position].groupType == "work" -> view!!.findViewById<ImageView>(R.id.group).setImageResource(R.drawable.ic_work)
             data[position].groupType == "chill" -> view!!.findViewById<ImageView>(R.id.group).setImageResource(R.drawable.ic_chill)
@@ -49,6 +50,7 @@ class MyArrayAdapter(context: Context, var data: ArrayList<ListElement>) :
         return view
     }
 
+    // Wyświetlanie poprawnego formatu czasu
     fun displayCorrectTime(hour: Int, minute: Int): String {
 
         var minuteString = minute.toString()
@@ -66,6 +68,7 @@ class MyArrayAdapter(context: Context, var data: ArrayList<ListElement>) :
         return "$hourString:$minuteString"
     }
 
+    // Wyświetlanie poprawnego formatu daty
     fun displayCorrectDate(day: Int, month: Int, year: Int): String {
         var dayString = day.toString()
         var monthString = month.toString()
